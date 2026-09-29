@@ -1,0 +1,22 @@
+{
+  "name": "ultimate-pi-bmad",
+  "version": "1.0.0",
+  "description": "Optional BMAD bridge for Ultimate PI. Not part of a default install.",
+  "type": "module",
+  "license": "MIT",
+  "repository": "github:VisionCraft3r/ultimate-pi-bmad",
+  "keywords": ["pi-package", "pi", "bmad"],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "pi": {
+    "extensions": ["./extensions/bmad-bridge.ts"]
+  },
+  "files": ["extensions", "lib"],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "scripts": {
+    "test": "node scripts/run-tests.mjs"
+  }
+}
