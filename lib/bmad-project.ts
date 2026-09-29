@@ -196,7 +196,7 @@ export function formatUltimatePiCard(project: BmadProject): string {
 	lines.push(
 		"Do not run party mode, bmad-help as a router, bmad-dev-auto, bmad-quick-dev, bmad-loop, a persona greeting, or stay-in-character.",
 		"The planner still writes .pi/plans/ and calls handoff_spec. If the brief is a story, the worker uses the story file under implementation_artifacts. When that story names files, the parent does not spawn a scout.",
-		"Code review stays the parent checkpoint after the worker.",
+		"After a worker wave that changes source, the parent spawns reviewer once. The parent does not edit that code itself.",
 		"Do not change .pi/agent-system unless the user explicitly asks to switch the agent system for this project.",
 	);
 	return lines.join("\n");
@@ -206,7 +206,7 @@ export function formatBmadModeCard(project: BmadProject): string {
 	const lines = [
 		"This project uses the BMAD agent skills.",
 		"Follow the persona the user named, or bmad-help when they ask what is next.",
-		"Do not remap that work onto scout, worker, planner, or qa_tester.",
+		"Do not remap that work onto scout, worker, planner, qa_tester, or reviewer.",
 		"Bash-guard, edit-guard, and /jobs stay available.",
 	];
 	if (project.planningArtifacts) lines.push(`planning_artifacts: ${project.planningArtifacts}`);
