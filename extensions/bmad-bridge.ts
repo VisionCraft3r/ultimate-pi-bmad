@@ -56,7 +56,7 @@ async function offerBmadUpdate(ctx: ExtensionContext, root: string, force: boole
 		return;
 	}
 	const before = hashCustomTree(root);
-	const result = await runQuickUpdate(root);
+	const result = await runQuickUpdate(root, decision.latest);
 	if (result.code !== 0) {
 		ctx.ui.notify("BMAD quick update did not finish. This project stays on the installed copy.", "warning");
 		return;

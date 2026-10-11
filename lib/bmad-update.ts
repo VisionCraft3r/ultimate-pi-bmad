@@ -14,11 +14,14 @@ export const UPDATE_NOTICE = [
 	"Files copied into the module tree, such as an extra workflow under _bmad/bmm/, are not in the protected set.",
 ].join(" ");
 
-export function quickUpdateArgv(projectRoot: string): string[] {
+export const BMAD_VERSION_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+
+export function quickUpdateArgv(projectRoot: string, version: string): string[] {
+	if (!BMAD_VERSION_RE.test(version)) throw new Error(`invalid bmad version: ${version}`);
 	return [
 		"npx",
 		"--yes",
-		"bmad-method@latest",
+		`bmad-method@${version}`,
 		"install",
 		"--yes",
 		"--action",
@@ -28,9 +31,9 @@ export function quickUpdateArgv(projectRoot: string): string[] {
 	];
 }
 
-export function quickUpdateArgvIfBmad(choice: string | null, projectRoot: string): string[] | null {
+export function quickUpdateArgvIfBmad(choice: string | null, projectRoot: string, version: string): string[] | null {
 	if (choice !== "bmad") return null;
-	return quickUpdateArgv(projectRoot);
+	return quickUpdateArgv(projectRoot, version);
 }
 
 export function parseSemver(version: string): [number, number, number] | null {
@@ -157,33 +160,65 @@ export function lookupLatestBmad(exec: () => Promise<string> = npmViewBmadVersio
 		.catch(() => null);
 }
 
-function npmViewBmadVersion(): Promise<string> {
+function npmViewBmadVersion(timeoutMs = 15_000): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const child = spawn("npm", ["view", "bmad-method", "version"], { env: process.env });
 		let output = "";
+		let timedOut = false;
+		const timer = setTimeout(() => {
+			timedOut = true;
+			child.kill("SIGTERM");
+		}, timeoutMs);
 		child.stdout.on("data", (chunk) => {
 			output += String(chunk);
 		});
-		child.on("error", reject);
+		child.on("error", (error) => {
+			clearTimeout(timer);
+			reject(error);
+		});
 		child.on("close", (code) => {
+			clearTimeout(timer);
+			if (timedOut) {
+				reject(new Error("npm view timed out"));
+				return;
+			}
 			if (code === 0) resolve(output);
 			else reject(new Error(`npm view exited ${code}`));
 		});
 	});
 }
 
-export function runQuickUpdate(projectRoot: string): Promise<{ code: number; output: string }> {
-	const argv = quickUpdateArgv(projectRoot);
+export function runQuickUpdate(
+	projectRoot: string,
+	version: string,
+	timeoutMs = 600_000,
+): Promise<{ code: number; output: string }> {
+	const argv = quickUpdateArgv(projectRoot, version);
 	return new Promise((resolve) => {
 		const child = spawn(argv[0], argv.slice(1), { cwd: projectRoot, env: process.env });
 		let output = "";
+		let timedOut = false;
+		const timer = setTimeout(() => {
+			timedOut = true;
+			child.kill("SIGTERM");
+		}, timeoutMs);
 		child.stdout?.on("data", (chunk) => {
 			output += String(chunk);
 		});
 		child.stderr?.on("data", (chunk) => {
 			output += String(chunk);
 		});
-		child.on("error", (error) => resolve({ code: 1, output: error.message }));
-		child.on("close", (code) => resolve({ code: code ?? 1, output }));
+		child.on("error", (error) => {
+			clearTimeout(timer);
+			resolve({ code: 1, output: error.message });
+		});
+		child.on("close", (code) => {
+			clearTimeout(timer);
+			if (timedOut) {
+				resolve({ code: 1, output: output + "\ntimed out" });
+				return;
+			}
+			resolve({ code: code ?? 1, output });
+		});
 	});
 }

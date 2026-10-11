@@ -4,11 +4,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import {
+	BMAD_VERSION_RE,
 	UPDATE_NOTICE,
 	compareSemver,
 	decideBmadUpdate,
 	diffCustomHashes,
 	hashCustomTree,
+	lookupLatestBmad,
 	quickUpdateArgv,
 	quickUpdateArgvIfBmad,
 	readDeclinedUpdate,
@@ -63,11 +65,11 @@ test("an older v6 install is offered until that latest version is declined", asy
 test("quick-update argv targets the project and Ultimate PI mode does not build it", async () => {
 	const root = await v6Fixture("6.5.0");
 	try {
-		const argv = quickUpdateArgv(root);
+		const argv = quickUpdateArgv(root, "6.10.0");
 		assert.deepEqual(argv, [
 			"npx",
 			"--yes",
-			"bmad-method@latest",
+			"bmad-method@6.10.0",
 			"install",
 			"--yes",
 			"--action",
@@ -76,14 +78,32 @@ test("quick-update argv targets the project and Ultimate PI mode does not build 
 			root,
 		]);
 		assert.equal(argv.filter((part) => part === "update").length, 0);
-		assert.equal(quickUpdateArgvIfBmad("ultimate-pi", root), null);
-		assert.equal(quickUpdateArgvIfBmad(null, root), null);
+		assert.equal(quickUpdateArgvIfBmad("ultimate-pi", root, "6.10.0"), null);
+		assert.equal(quickUpdateArgvIfBmad(null, root, "6.10.0"), null);
 		assert.match(UPDATE_NOTICE, /_bmad\/custom\//);
 		assert.match(UPDATE_NOTICE, /customize\.toml/);
 		assert.match(UPDATE_NOTICE, /_bmad\/bmm\//);
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}
+});
+
+test("quick-update argv rejects a non-semver version", async () => {
+	const root = await v6Fixture("6.5.0");
+	try {
+		assert.throws(() => quickUpdateArgv(root, "latest"), /invalid bmad version/);
+		assert.throws(() => quickUpdateArgv(root, "6.1"), /invalid bmad version/);
+		assert.throws(() => quickUpdateArgv(root, "1.0.0; rm"), /invalid bmad version/);
+		assert.match("6.10.0", BMAD_VERSION_RE);
+		assert.match("6.10.0-beta.1", BMAD_VERSION_RE);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test("a version lookup that times out resolves null", async () => {
+	const result = await lookupLatestBmad(() => Promise.reject(new Error("npm view timed out")));
+	assert.equal(result, null);
 });
 
 test("a custom-file change fails the hash check", async () => {
